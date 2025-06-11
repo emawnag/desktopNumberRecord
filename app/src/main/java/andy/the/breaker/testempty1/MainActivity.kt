@@ -28,19 +28,24 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import andy.the.breaker.testempty1.ui.theme.Testempty1Theme
 import android.Manifest
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.content.FileProvider
+import andy.the.breaker.testempty1.viewer.HtmlOverlayActivity
+import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivity : ComponentActivity() {
     private lateinit var warehouse: WarehouseManagement
-    val gpsMoneyParser = GPSMoneyParser()
+    private lateinit var gpsMoneyParser : GPSMoneyParser
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         warehouse = WarehouseManagement(this) // 初始化
+        gpsMoneyParser=GPSMoneyParser(warehouse)
         setContent {
             var fileContent by remember { mutableStateOf("尚未讀取") }
             val scrollState = rememberScrollState()
+            val coroutineScope = rememberCoroutineScope()
 
             Testempty1Theme {
                 Scaffold { padding ->
@@ -65,7 +70,7 @@ class MainActivity : ComponentActivity() {
 
                         Button(
                             onClick = {
-                                fileContent = warehouse.readFromFile("main.json")
+                                fileContent = warehouse.readFromFile("cacheHL.json")
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -74,8 +79,11 @@ class MainActivity : ComponentActivity() {
 
                         Button(
                             onClick = {
-                                fileContent =
-                                    gpsMoneyParser.parse(warehouse.readFromFile("main.json")).toString()
+                                coroutineScope.launch {
+                                    val raw = warehouse.readFromFile("main.json")
+                                    val parsed = gpsMoneyParser.parse(raw)  // suspend function
+                                    fileContent = parsed.toString()
+                                }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -102,6 +110,20 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("移除主資料庫")
+                        }
+
+                        Button(
+                            onClick = { HtmlOverlayActivity.start(this@MainActivity) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("打開內嵌瀏覽器")
+                        }
+                        //writeToFileIfNotExists
+                        Button(
+                            onClick = { warehouse.writeToFileIfNotExists("index.html","<html><body><h1>123</h1></body></html>")},
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("測試加idxhtml")
                         }
                     }
                 }
