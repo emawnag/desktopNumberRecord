@@ -1,8 +1,10 @@
 package andy.the.breaker.testempty1
 
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
@@ -12,25 +14,42 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import andy.the.breaker.testempty1.ui.theme.Testempty1Theme
+import android.Manifest
+import androidx.core.content.FileProvider
+import java.io.File
 
 class MainActivity : ComponentActivity() {
+    private lateinit var warehouse: WarehouseManagement
+    val gpsMoneyParser = GPSMoneyParser()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        warehouse = WarehouseManagement(this) // 初始化
         setContent {
+            var fileContent by remember { mutableStateOf("尚未讀取") }
+            val scrollState = rememberScrollState()
+
             Testempty1Theme {
                 Scaffold { padding ->
                     Column(
                         modifier = Modifier
                             .padding(padding)
                             .padding(16.dp)
-                            .fillMaxSize(),
+                            .fillMaxSize()
+                            .verticalScroll(scrollState),  // 加這行讓整個 Column 可 scroll
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
@@ -38,16 +57,68 @@ class MainActivity : ComponentActivity() {
                             style = MaterialTheme.typography.titleLarge
                         )
 
-                        for (i in 0..9) {
+                        for (i in 0..11) {
                             AddShortcutButton(number = i) {
                                 createPinnedShortcut(i)
                             }
+                        }
+
+                        Button(
+                            onClick = {
+                                fileContent = warehouse.readFromFile("main.json")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("讀取")
+                        }
+
+                        Button(
+                            onClick = {
+                                fileContent =
+                                    gpsMoneyParser.parse(warehouse.readFromFile("main.json")).toString()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("解析GPS金額")
+                        }
+
+                        Text("讀取內容：$fileContent")
+
+                        ShareJsonButton(this@MainActivity,warehouse)
+
+                        Button(
+                            onClick = {
+                                requestLocationPermission(this@MainActivity)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("取得GPS權限")
+                        }
+
+                        Button(
+                            onClick = {
+                                warehouse.removeFileByName("main.json")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("移除主資料庫")
                         }
                     }
                 }
             }
         }
     }
+
+    fun requestLocationPermission(activity: Activity) {
+        val permission = Manifest.permission.ACCESS_FINE_LOCATION
+
+        if (ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(activity, arrayOf(permission), 101)
+        } else {
+            Toast.makeText(activity, "✅ 已經有 GPS 權限", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
     private fun createPinnedShortcut(i: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -58,11 +129,20 @@ class MainActivity : ComponentActivity() {
                 putExtra("shortcut_number", i)
             }
 
+            val label = if (i == 10) {
+                "ENTER"
+            } else if (i == 11) {
+                "CLEAR"
+            } else {
+                "數字$i"
+            }
+
             val shortcut = ShortcutInfo.Builder(this, "pinned_shortcut_$i")
-                .setShortLabel("數字$i")
+                .setShortLabel(label)
                 .setIcon(Icon.createWithResource(this, R.mipmap.ic_launcher))
                 .setIntent(shortcutIntent)
                 .build()
+
 
             if (shortcutManager?.isRequestPinShortcutSupported == true) {
                 val pinnedShortcutCallbackIntent =
@@ -90,5 +170,41 @@ fun AddShortcutButton(number: Int, onClick: () -> Unit) {
             .height(56.dp)
     ) {
         Text("新增數字 $number 捷徑")
+    }
+}
+@Composable
+fun ShareJsonButton(context: Context,warehouse:WarehouseManagement) {
+    var fileContent by remember { mutableStateOf("") }
+
+    Column {
+        Button(
+            onClick = {
+                fileContent = warehouse.readFromFile("main.json")
+
+                // 建立一個暫存 txt 檔案
+                val file = File(context.cacheDir, "shared_content.txt").apply {
+                    writeText(fileContent)
+                }
+
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",  // 記得 AndroidManifest.xml 裡要配置 provider
+                    file
+                )
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                context.startActivity(Intent.createChooser(shareIntent, "分享 JSON 給..."))
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("分享 JSON")
+        }
+
+        Text("讀取內容：$fileContent")
     }
 }
