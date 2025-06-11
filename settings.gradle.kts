@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "testempty1"
+rootProject.name = "desktopNumberRecord"
 include(":app")
  

@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "andy.the.breaker.testempty1"
+    namespace = "andy.the.breaker.desktopNumberRecord"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "andy.the.breaker.testempty1"
+        applicationId = "andy.the.breaker.desktopNumberRecord"
         minSdk = 35
         targetSdk = 35
         versionCode = 1
