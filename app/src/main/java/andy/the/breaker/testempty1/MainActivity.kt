@@ -37,6 +37,7 @@ import java.io.File
 class MainActivity : ComponentActivity() {
     private lateinit var warehouse: WarehouseManagement
     private lateinit var gpsMoneyParser : GPSMoneyParser
+    val genHTML :GenHTML = GenHTML()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -124,6 +125,20 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("測試加idxhtml")
+                        }
+
+                        Button(
+                            onClick = {
+                                coroutineScope.launch {
+                                val raw = warehouse.readFromFile("main.json")
+                                val parsed = genHTML.genBasicHtml(gpsMoneyParser.parse(raw))
+                                warehouse.writeToFileOverwrite("index.html",parsed)
+                                    HtmlOverlayActivity.start(this@MainActivity)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("生成檢視檔")
                         }
                     }
                 }
