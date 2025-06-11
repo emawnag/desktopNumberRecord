@@ -9,7 +9,42 @@ import java.util.Date
 import java.util.Locale
 
 class WarehouseManagement(private val context: Context) {
-    fun logClick(clickName: String) {
+    fun getHL(input: Pair<Double, Double>): Pair<String, JSONObject>? {
+        val file = File(context.filesDir, "cacheHL.json")
+        if (!file.exists()) return null
+
+        val json = JSONObject(file.readText())
+        val key = "${input.first},${input.second}"
+        return if (json.has(key)) {
+            val obj = json.getJSONObject(key)
+            val name = obj.getString("name")
+            val data = obj.getJSONObject("data")
+            Pair(name, data)
+        } else {
+            null
+        }
+    }
+
+    fun putHL(input: Pair<Double, Double>, humanLook: Pair<String, JSONObject>): Int {
+        return try {
+            val file = File(context.filesDir, "cacheHL.json")
+            val json = if (file.exists()) JSONObject(file.readText()) else JSONObject()
+
+            val key = "${input.first},${input.second}"
+            val obj = JSONObject().apply {
+                put("name", humanLook.first)
+                put("data", humanLook.second)
+            }
+            json.put(key, obj)
+
+            file.writeText(json.toString())
+            1
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    fun logClick(clickName: String, currentGPSlocation: String) {
         val fileName = "main.json"
         val file = File(context.filesDir, fileName)
 
@@ -29,6 +64,7 @@ class WarehouseManagement(private val context: Context) {
         val clickObject = JSONObject()
         clickObject.put("name", clickName)
         clickObject.put("datetime", getCurrentDateTime())
+        clickObject.put("gps", currentGPSlocation)
 
         // 加到 logs array 中
         logsArray.put(clickObject)
@@ -60,6 +96,26 @@ class WarehouseManagement(private val context: Context) {
     }
 
     /**
+     * 移除指定檔案（若存在）
+     * @param fileName 檔名
+     * @return 回傳狀態訊息
+     */
+    fun removeFileByName(fileName: String): String {
+        return try {
+            val file = File(context.filesDir, fileName)
+            if (file.exists()) {
+                file.delete()
+                "檔案已成功刪除：$fileName"
+            } else {
+                "檔案不存在：$fileName"
+            }
+        } catch (e: Exception) {
+            "刪除檔案失敗：${e.message}"
+        }
+    }
+
+
+    /**
      * 寫入資料到指定檔案（如果檔案不存在才寫入）
      * @param fileName 檔名
      * @param content 要寫入的內容
@@ -74,6 +130,19 @@ class WarehouseManagement(private val context: Context) {
             "檔案已存在，無需重寫"
         }
     }
+
+    /**
+     * 寫入資料到指定檔案（如果檔案已存在則覆寫）
+     * @param fileName 檔名
+     * @param content 要寫入的內容
+     * @return 回傳狀態訊息
+     */
+    fun writeToFileOverwrite(fileName: String, content: String): String {
+        val file = File(context.filesDir, fileName)
+        file.writeText(content)
+        return "檔案已寫入（若已存在則已覆寫）"
+    }
+
 
     /**
      * 讀取指定檔案內容
